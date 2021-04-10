@@ -1,0 +1,77 @@
+<%- include('./partials/header.ejs'); %>
+
+    <div class="container-fluid">
+       <div class="row">
+           <div class="col-lg-6">
+            <div class="card">
+                <figure class="card__figure">
+                  <img src="https://conta.nubank.com.br/images/nu-white.png" class="card__figure--logo"></img>
+                </figure>
+              <div class="card__reader">
+                <div class="card__reader--risk card__reader--risk-one"></div>
+                <div class="card__reader--risk card__reader--risk-two"></div>
+                 <div class="card__reader--risk card__reader--risk-three"></div>
+                <div class="card__reader--risk card__reader--risk-four"></div>
+              </div>
+              <p class="card__number">5032 9334 3764 9846</p>
+              <div class="card__dates">
+                <span class="card__dates--first">09/16</span>
+                <span class="card__dates--second">09/19</span>
+              </div>
+              <p class="card__name">GABRIEL FERREIRA<p>
+              <div class="card__flag">
+                <div class="card__flag--globe"></div>
+                <div class="card__flag--red"></div>
+                 <div class="card__flag--yellow"></div>
+              </div>
+              </div>
+           </div>
+           <div class="col-lg-6">
+                 <!--form section-->
+      <form id="regForm" action="/createCard" method="POST">
+        <h1>Enter Data:</h1>
+        <!-- One "tab" for each step in the form: -->
+        <div class="tab">Currency:
+          <p><input type= "text" name="currency" placeholder="USD" disabled value="usd" ></p>
+          <p><input type="number" placeholder="Enter Amount..." name="amount"></p>
+          <p><input type= "text" placeholder="Billing name..."  name="billing_name"></p>
+        </div>
+        <div class="tab">Billing
+          <p><input type= "text" placeholder="Billing name..."  name="billing_name"></p>
+          <p><input type="text" placeholder="Enter billing address"  name="billing_address"></p>
+          <p><input type="text" placeholder="Enter Billing City"  name="billing_city"></p>
+
+          <p><input type= "text" placeholder="Billing State..."  name="billing_state"></p>
+          <p><input type="text" placeholder="Enter Postal Code"  name="billing_postal_code"></p>
+          <p><input type="text" placeholder="Enter billing country"  name="billing_country"></p>
+          
+        </div>        
+        <div  style="display: none;">
+          <p><input type= "hidden"  name="c" value="/callbakc"></p>        
+        </div>        
+       
+        <div style="overflow:auto;">
+          <div style="float:right;">
+            <button type="button" id="prevBtn" onclick="nextPrev(-1)">Previous</button>
+            <button type="button" id="nextBtn" onclick="nextPrev(1)">Next</button>
+          </div>
+        </div>
+        <!-- Circles which indicates the steps of the form: -->
+        <div style="text-align:center;margin-top:40px;">
+          <span class="step"></span>
+          <span class="step"></span>
+          <!-- <span class="step"></span>
+          <span class="step"></span> -->
+        </div>
+      </form>
+           </div>
+       </div>
+    </div>
+    
+   
+      <div class="assign">
+        <p>Made by <a href="https://github.com/gabrielferreiraa" target="_blank">@gabrielferreiraa</a></p>
+      </div>
+    
+    
+      <%- include('./partials/header.ejs'); %>
