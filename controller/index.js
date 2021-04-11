@@ -96,3 +96,14 @@ exports.singleVirtualCard = (req, res, next) => {
     })
     .catch((error) => res.status(404).json({ message: error }));
 };
+
+// update a card - Assuming card is updated upon selecting a single card
+// eslint-disable-next-line no-unused-vars
+exports.fundVirtualCard = (req, res, next) => {
+  const { userId } = req;
+  const { id } = req.params;
+  const { amount } = req.body;
+  db.execute('UPDATE card SET amount = ? WHERE userId  = ? And id = ?', [amount, userId, id])
+    .then(() => res.status(201).json({ status: "success", message: 'card updated successfully', data: null }))
+    .catch((error) => res.status(400).json({ message: 'error updating card', error }));
+};

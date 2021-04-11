@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/virtual-card/:id/', isAuth, cardController.singleVirtualCard); // get a single virtual card using the virtual card id
 router.get('/virtual-card/:id', isAuth, cardController.callBack); // url callback
 router.get('/virtual-cards', isAuth, cardController.allVirtualCards); //  Get all Virtual cards
+router.put('/virtual-cards/:id/fund', isAuth, cardController.fundVirtualCard); // updated a card
 
 router.post(
   '/createcard',
