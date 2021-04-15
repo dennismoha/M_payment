@@ -4,6 +4,7 @@ const express = require('express');
 const dotenv = require('dotenv').config();
 const path = require('path');
 const logger = require('morgan');
+const helmet = require('helmet');
 
 const virtualCardRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
@@ -14,6 +15,7 @@ const app = express();
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+app.use(helmet());
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader(
@@ -46,7 +48,8 @@ app.use((err, req, res, next) => {
 
   // render the error page
   res.status(err.status || 500);
-  res.render('error');
+  // res.render('error');
+  res.status(err.status).json({ message: err });
 });
 
 // module.exports = app;
