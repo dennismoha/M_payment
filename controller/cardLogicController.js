@@ -18,27 +18,27 @@ exports.createCard = (req, res, next) => {
   const { billing_postal_code } = req.body;
   const { billing_country } = req.body;
   const { userId } = req;
+  let callback_url = '/virtualcard/virtual-card/';
 
-  db.execute(
-    'INSERT INTO card (currency, amount, billing_name, billing_address, billing_city, billing_estate, billing_postal_code, billing_country, userId) values (?, ?, ?,?,?,?,?,?,?)',
-    [
-      currency,
-      amount,
-      billing_name,
-      billing_address,
-      billing_city,
-      billing_estate,
-      billing_postal_code,
-      billing_country,
-      userId,
-    ]
-  )
+  db.execute('call moyalo.insertcard(?,?,?,?,?,?,?,?,?,?)', [
+    currency,
+    amount,
+    billing_name,
+    billing_address,
+    billing_city,
+    billing_estate,
+    billing_postal_code,
+    billing_country,
+    userId,
+    callback_url,
+  ])
     // eslint-disable-next-line no-unused-vars
     .then(([results]) => {
-      const callback_url = `/virtualcard/virtual-card/${results.insertId}`;
-      return res.redirect(callback_url);
+      const { id } = results[0];
+      callback_url = `/virtualcard/virtual-card/cb/${id}`;
+      return res.status(304).redirect(callback_url);
     })
-    .catch((err) => res.status(401).json({ message: ' error', err }));
+    .catch((err) => res.status(401).json({ message: err }));
   return null;
 };
 
@@ -48,11 +48,12 @@ exports.createCard = (req, res, next) => {
 exports.callBack = (req, res, next) => {
   const { userId } = req;
   const { id } = req.params;
-
-  db.execute('SELECT * FROM card WHERE userId = ? AND id = ?', [userId, id])
-    .then((card) => {
+  const results = 0;
+  db.execute(' call moyalo.getASingleCard(?, ?, ?)', [userId, id, results])
+    // eslint-disable-next-line no-unused-vars
+    .then(([card, field]) => {
       if (!card) {
-        return res.status(401).json({ message: 'UnAuthorized / no user' });
+        return res.status(401).json({ });
       }
       return res.status(200).json({
         status: 'Success',
@@ -60,13 +61,13 @@ exports.callBack = (req, res, next) => {
         data: card[0],
       });
     })
-    .catch((error) => res.status(404).json({ message: error }));
+    .catch((error) => res.status(404).json({ message: error, messages: 'callbac' }));
 };
 
 // get all virtual cards
 exports.allVirtualCards = (req, res) => {
   const { userId } = req;
-  db.execute('SELECT * FROM card WHERE userId = ? And delete_card = ?  ', [userId, 'False'])
+  db.execute('call getAllVirtualCards(?)', [userId])
     .then((card) => {
       if (!card) {
         return res.status(404).json({ message: ' not found' });
@@ -80,16 +81,21 @@ exports.allVirtualCards = (req, res) => {
 exports.singleVirtualCard = (req, res) => {
   const { userId } = req;
   const { id } = req.params;
+  const results = 0;
 
-  db.execute('SELECT * FROM card WHERE userId = ? AND id = ? AND delete_card = ? and status_action = ? ', [userId, id, 'False', 'notBlocked'])
-    .then((card) => {
-      if (!card) {
+  console.log(userId, id);
+
+  db.execute(' call getASingleCard(? , ?, ? )', [userId, id, results])
+    // eslint-disable-next-line no-unused-vars
+    .then(([field, card]) => {
+      if (!field) {
         return res.status(401).json({ });
       }
+      // console.log(field[0]);
       return res.status(200).json({
         status: 'Success',
         message: 'Card fetched successfully',
-        data: card[0],
+        data: field[0],
       });
     })
     .catch((error) => res.status(404).json({ message: error }));
@@ -102,12 +108,9 @@ exports.fundVirtualCard = (req, res) => {
   const { Amount } = req.body;
 
   db.execute('UPDATE card SET amount = amount + ?  WHERE id = ? AND userId = ?', [Amount, id, userId])
-    .then((results) => {
-      console.log(results);
-      return res.status(201).json(results); // check the status for this
-    })
+    .then((results) => res.status(201).json(results)) // check the status for this
     .catch(((error) => {
-      res.json(error);
+      res.status(400).json(error);
     }));
 };
 
