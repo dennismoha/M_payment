@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const isAuth = require('../config/auth');
+const checkRole = require('../config/middleware');
 const cardController = require('../controller/cardLogicController');
 
 const router = express.Router();
@@ -12,7 +13,7 @@ router.put('/virtual-cards/:id/fund', isAuth, cardController.fundVirtualCard); /
 router.put('/virtual-cards/:id/terminate', isAuth, cardController.terminateVirtualCard); // Terminate a virtual card
 router.get('/virtual-cards/:id/transactions', isAuth, cardController.getVirtualCardTransactions); // get all virtual card transactions
 router.post('/virtual-cards/:id/withdraw', isAuth, cardController.withDrawFromVirtualCard); // Withdraw from card
-router.put('/virtual-cards/:id/status/', isAuth, cardController.blockVirtualCards); // handles the block ,ublock virtual card state
+router.put('/virtual-cards/:id/status/', isAuth, checkRole.checkRole, cardController.blockVirtualCards); // handles the block ,ublock virtual card state
 
 // remember to add the currency sanitizier
 

@@ -1,6 +1,8 @@
+/* eslint-disable no-underscore-dangle */
 /* eslint-disable camelcase */
 const { validationResult } = require('express-validator');
 const db = require('../config/database');
+
 // eslint-disable-next-line no-unused-vars
 exports.createCard = (req, res, next) => {
   const errors = validationResult(req);
@@ -35,15 +37,14 @@ exports.createCard = (req, res, next) => {
     // eslint-disable-next-line no-unused-vars
     .then(([results]) => {
       const { id } = results[0];
-      callback_url = `/virtualcard/virtual-card/cb/${id}`;
-      return res.status(304).redirect(callback_url);
+      callback_url = `/virtualcard/virtual-card/cb/${id}`; // Ask about the correct redirect url
+      return res.status(201).json(results);
     })
     .catch((err) => res.status(401).json({ message: err }));
   return null;
 };
 
 // callback logic
-
 // eslint-disable-next-line no-unused-vars
 exports.callBack = (req, res, next) => {
   const { userId } = req;
@@ -72,7 +73,7 @@ exports.allVirtualCards = (req, res) => {
       if (!card) {
         return res.status(404).json({ message: ' not found' });
       }
-      return res.status(200).json({ card });
+      return res.status(200).json(card[0][0]);
     })
     .catch((error) => res.status(400).json(error));
 };
@@ -83,15 +84,12 @@ exports.singleVirtualCard = (req, res) => {
   const { id } = req.params;
   const results = 0;
 
-  console.log(userId, id);
-
   db.execute(' call getASingleCard(? , ?, ? )', [userId, id, results])
     // eslint-disable-next-line no-unused-vars
     .then(([field, card]) => {
-      if (!field) {
-        return res.status(401).json({ });
+      if (field[0].length === 0) {
+        return res.status(401).json({ message: 'no card' });
       }
-      // console.log(field[0]);
       return res.status(200).json({
         status: 'Success',
         message: 'Card fetched successfully',
@@ -101,17 +99,33 @@ exports.singleVirtualCard = (req, res) => {
     .catch((error) => res.status(404).json({ message: error }));
 };
 
-// fund a card
-exports.fundVirtualCard = (req, res) => {
+// fund a virtual card controller
+exports.fundVirtualCard = async (req, res) => {
   const { userId } = req;
   const { id } = req.params;
   const { Amount } = req.body;
+  let conn = null;
 
-  db.execute('UPDATE card SET amount = amount + ?  WHERE id = ? AND userId = ?', [Amount, id, userId])
-    .then((results) => res.status(201).json(results)) // check the status for this
-    .catch(((error) => {
-      res.status(400).json(error);
-    }));
+  // remember to return the default currency
+
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction('start transaction');
+    const [response] = await conn.execute('call fundVirtualCard(?, ?, ?,@results1,@results2)', [id, userId, Amount]);
+    const data = response[0];
+    const updatedAmount = data[0].balanceAmount;
+    const currency = 'usd';
+    const actionTaken = `amount updated to ,${updatedAmount}`;
+    const whoMadeChanges = `username: ${userId}  ' role: ' ${req.role}`;
+    await db.execute('call cardsLogAfterUpdate(?, ?, ?, ?, ?, ?,?, ?,@success)', [id, userId, updatedAmount, currency, 'NO', 'NO', actionTaken, whoMadeChanges]);
+    res.status(201).json({ data });
+    await conn.commit();
+  } catch (error) {
+    if (conn) await conn.rollback;
+    res.status(400).json(error);
+  } finally {
+    if (conn) await conn.release();
+  }
 };
 
 /* check on this issue before the next route
@@ -124,16 +138,31 @@ exports.fundVirtualCard = (req, res) => {
 */
 
 // terminate a virtual card
-exports.terminateVirtualCard = (req, res) => {
+exports.terminateVirtualCard = async (req, res) => {
   const { userId } = req;
   const { id } = req.params;
+  let conn = '';
 
-  db.execute('UPDATE card SET delete_card = ? WHERE id= ? AND userId= ? ', ['True', id, userId])
-    .then(() => {
-      const data = null;
-      return res.status(200).json({ status: 'Success', message: 'card Terminated successfully', data });
-    })
-    .catch((error) => res.status(404).json(error));
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction('start transaction');
+    const [response] = await conn.execute('call terminateVirtualCard(?, ?, @terminateStatus,@currency,@freezes,@amounts) ', [userId, id]);
+    const amount = response[0][0].amounts;
+    const freeze = response[0][0].freezes;
+    const currency = response[0][0].currencys;
+    const { terminateStatus } = response[0][0];
+
+    const actionTaken = `terminated ? ,${terminateStatus}`;
+    const whoMadeChanges = `username: ${userId}  ' role: ' ${req.role}`;
+    await db.execute('call cardsLogAfterUpdate(?, ?, ?, ?, ?, ?,?, ?,@success)', [id, userId, amount, currency, freeze, terminateStatus, actionTaken, whoMadeChanges]);
+    res.status(201).json({ status: 'success', message: 'card terminated successfully', terminateStatus });
+    await conn.commit();
+  } catch (error) {
+    if (conn) await conn.rollback;
+    res.status(400).json(error);
+  } finally {
+    if (conn) await conn.release();
+  }
 };
 
 // Get all virtual card transactions
@@ -152,35 +181,68 @@ exports.getVirtualCardTransactions = (req, res) => {
 
 // withdraw
 
-exports.withDrawFromVirtualCard = (req, res) => {
+exports.withDrawFromVirtualCard = async (req, res) => {
   const { userId } = req;
   const { id } = req.params;
   const { Amount } = req.body;
 
-  db.execute('UPDATE  card SET amount = if(amount >=  ? , amount - ? ,amount) where id = ? and userId = ?',
-    [Amount, Amount, id, userId])
-    .then(([resultData]) => {
-      if (resultData.changedRows === 1) {
-        return res.status(200).json({ message: 'Withdrawn successfully' });
-      }
-      return res.json({ message: 'check your balance account' });
-    })
-    .catch((error) => res.status(400).json(error));
+  // CHECK IF AMOUNT TO BE WITHDRAWN IS <= 0 AND THROW AN ERROR
+
+  let conn = null;
+
+  // remember to return the default currency
+
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction('start transaction');
+    const [response] = await conn.execute('call withDrawFromCard(?, ?, ?, @currentAccountBalance,@currency )', [Amount, id, userId]);
+    const data = response[0][0].currentAccountBalance;
+
+    const updatedAmount = response[0][0].currentAccountBalance;
+    const currency = response[0][0].currencys;
+    const actionTaken = `Amount withdrawn:balance ,${data}`;
+    const whoMadeChanges = `username: ${userId}  ' role: ' ${req.role}`;
+    await db.execute('call cardsLogAfterUpdate(?, ?, ?, ?, ?, ?,?, ?,@success)', [id, userId, updatedAmount, currency, 'NO', 'NO', actionTaken, whoMadeChanges]);
+    res.status(201).json({ data });
+    await conn.commit();
+  } catch (error) {
+    if (conn) await conn.rollback;
+    res.status(400).json(error);
+  } finally {
+    if (conn) await conn.release();
+  }
 };
 
-// Block or ublock card
-exports.blockVirtualCards = (req, res) => {
-  const { ownerCardNameId } = req.body;
-  const { id } = req.params;
-  const { status_action } = req.query;
-  status_action.trim();
+// FREEZE or ublock card :  NB: never implemented the req.query
+exports.blockVirtualCards = async (req, res) => {
+  // const { status_action } = req.query;
+  const { userId } = req.body; // user email id
+  const cardId = req.params.id; // card id
+  let conn = '';
 
-  db.execute('UPDATE card SET status_action = ? WHERE id = ? AND userId = ? ', [status_action, id, ownerCardNameId])
-    .then(() => {
-      if (status_action === 'unblocked') {
-        return res.status(200).json({ status: 'Success', message: 'Card unblocked succesfully successful' }); // card is unblocked
-      }
-      return res.status(200).json({ status: 'Success', message: 'Card freeze successful' }); // card is blocked
-    })
-    .catch((error) => res.status(400).json({ message: 'bad request', error }));
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction('start transaction');
+    const [response] = await conn.execute('call freezeVirtualCard(?, ?,@freezeStatus,@amount,@currency)', [userId, cardId]);
+
+    const status1_action = response[0];
+    const results = status1_action.filter((statusAction) => statusAction);
+    const data = results[0].freezeStatus_;
+    const updatedAmount = results[0].amounts;
+    const currency = results[0].currencys;
+    const actionTaken = `freezed ? ,${data}`;
+    const whoMadeChanges = `username: ${userId}  ' role: ' ${req.role}`;
+
+    await db.execute('call cardsLogAfterUpdate(?, ?, ?, ?, ?, ?,?, ?,@success)', [cardId, userId, updatedAmount, currency, data, 'NO', actionTaken, whoMadeChanges]);
+
+    const message = data === 'NO' ? 'successfully unfreezed' : 'freezed succesfully';
+
+    res.status(201).json({ message, data });
+    await conn.commit();
+  } catch (error) {
+    if (conn) await conn.rollback;
+    res.status(400).json(error);
+  } finally {
+    if (conn) await conn.release();
+  }
 };

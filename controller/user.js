@@ -6,7 +6,7 @@ const db = require('../config/database');
 exports.createUser = (req, res, next) => {
   const { email } = req.body;
   const { password } = req.body;
-  const date = new Date(2018, 11, 24, 10, 33);
+  const { role } = req.body;
 
   db.execute('select * from users WHERE email = ?', [email])
     // eslint-disable-next-line no-unused-vars
@@ -16,7 +16,7 @@ exports.createUser = (req, res, next) => {
           db.execute('call moyalo.addUser(?, ?, ?)', [
             email,
             hashedPassword,
-            date,
+            role
           ]).then(() => res.status(201).json({ message: 'Registered Successfully' }));
         });
       } else {
@@ -43,8 +43,9 @@ exports.userLogin = (req, res, next) => {
               return res.status(401).json({ message: 'email or password is incorrect' });
             }
             const userId = user[0].email;
-            const token = jwt.sign({ userId }, `${process.env.SECRET}`, { expiresIn: '1h' });
-            return res.status(200).json({ token, userId });
+            const { role } = user[0];
+            const token = jwt.sign({ userId, role }, `${process.env.SECRET}`, { expiresIn: '1h' });
+            return res.status(200).json({ token, userId, role });
           });
       } else {
         return res.status(404).json({ message: 'email does not exist' });

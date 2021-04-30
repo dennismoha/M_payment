@@ -6,7 +6,7 @@ const path = require('path');
 const logger = require('morgan');
 const helmet = require('helmet');
 
-const virtualCardRouter = require('./routes/index');
+const virtualCardRouter = require('./routes/card');
 const usersRouter = require('./routes/users');
 
 const app = express();
