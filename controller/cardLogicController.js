@@ -65,7 +65,7 @@ exports.callBack = (req, res, next) => {
     .catch((error) => res.status(404).json({ message: error, messages: 'callbac' }));
 };
 
-// get all virtual cards
+// get all virtual cards for a user NB: freezed / terminated virtual cards are not returned
 exports.allVirtualCards = (req, res) => {
   const { userId } = req;
   db.execute('call getAllVirtualCards(?)', [userId])
